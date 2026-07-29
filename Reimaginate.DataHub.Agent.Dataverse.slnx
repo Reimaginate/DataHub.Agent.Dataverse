@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/Reimaginate.DataHub.Agent.Dataverse/Reimaginate.DataHub.Agent.Dataverse.csproj" />
+  <Project Path="src/Reimaginate.DataHub.Agent.TestFramework.Dataverse/Reimaginate.DataHub.Agent.TestFramework.Dataverse.csproj" />
+  <Project Path="test/Reimaginate.DataHub.Agent.Dataverse.Tests.Shared/Reimaginate.DataHub.Agent.Dataverse.Tests.Shared.csproj" />
+  <Project Path="test/Reimaginate.DataHub.Agent.Dataverse.Tests/Reimaginate.DataHub.Agent.Dataverse.Tests.Unit.csproj" />
+</Solution>

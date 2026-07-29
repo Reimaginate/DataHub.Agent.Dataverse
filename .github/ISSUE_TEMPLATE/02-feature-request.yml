@@ -1,0 +1,51 @@
+name: Feature request
+description: Describe a customer problem or desired product capability
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        GitHub Issues are structured feedback intake, not a support channel.
+        Requests do not carry a response SLA or guarantee review, acceptance, or implementation.
+        External pull requests are not accepted.
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Before submitting
+      options:
+        - label: I understand that this request may not be reviewed or implemented.
+          required: true
+  - type: input
+    id: package
+    attributes:
+      label: Affected family or package
+      placeholder: Core / Reimaginate.DataHub.Agent
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Customer problem
+      description: Describe the problem or limitation without prescribing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the observable capability or result you need.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+    validations:
+      required: false
+  - type: textarea
+    id: impact
+    attributes:
+      label: Business impact
+      description: Explain who is affected and the cost or risk of the current limitation.
+    validations:
+      required: true

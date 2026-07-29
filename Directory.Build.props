@@ -1,0 +1,31 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)release\PackageVersions.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)release\PackageVersions.props')" />
+  <PropertyGroup>
+    <Authors Condition="'$(Authors)' == ''">Reimaginate</Authors>
+    <Copyright Condition="'$(Copyright)' == ''">Copyright Reimaginate Pty Ltd</Copyright>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1903</WarningsAsErrors>
+    <PackageProjectUrl Condition="'$(PackageProjectUrl)' == ''">https://github.com/Reimaginate/DataHub.Agent.Dataverse</PackageProjectUrl>
+    <RepositoryUrl Condition="'$(RepositoryUrl)' == ''">https://github.com/Reimaginate/DataHub.Agent.Dataverse</RepositoryUrl>
+    <RepositoryType Condition="'$(RepositoryType)' == ''">git</RepositoryType>
+    <PackageLicenseFile Condition="'$(PackageLicenseFile)' == ''">LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance Condition="'$(PackageRequireLicenseAcceptance)' == ''">True</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile Condition="'$(PackageReadmeFile)' == '' and Exists('$(MSBuildProjectDirectory)\README.md')">README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\README.md')">
+    <None Include="$(MSBuildProjectDirectory)\README.md" Pack="true" PackagePath="\" Link="README.md" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)LICENSE')">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="\" Link="LICENSE" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(GeneratePackageOnBuild)' == 'True'">
+    <DebugType>portable</DebugType>
+    <Deterministic>true</Deterministic>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+</Project>

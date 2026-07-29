@@ -1,0 +1,85 @@
+name: Bug report
+description: Report a reproducible problem in an official Reimaginate release
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        GitHub Issues are structured feedback intake, not a support channel.
+        Reports do not carry a response SLA or guarantee that a change will be implemented.
+        Do not disclose security vulnerabilities here; use the private process in SECURITY.md.
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am not reporting a security vulnerability or requesting product support.
+          required: true
+        - label: I have removed credentials, customer data, and other secrets from this report.
+          required: true
+  - type: input
+    id: package
+    attributes:
+      label: Package ID
+      description: The affected Reimaginate package.
+      placeholder: Reimaginate.DataHub.Agent
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 1.4.0
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build type
+      description: Modified builds may need to be reproduced against an official release.
+      options:
+        - Official, unmodified Reimaginate release
+        - Modified or self-built version
+    validations:
+      required: true
+  - type: input
+    id: dotnet
+    attributes:
+      label: .NET version
+      description: Include the SDK and runtime version where relevant.
+      placeholder: SDK 10.0.x / Runtime 10.0.x
+    validations:
+      required: true
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system
+      placeholder: Windows Server 2025, Ubuntu 24.04, or container base image
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest complete sequence that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs or stack traces
+      description: Remove credentials, tokens, customer data, tenant details, and other secrets before attaching logs.
+    validations:
+      required: false
