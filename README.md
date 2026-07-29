@@ -1,7 +1,7 @@
 # DataHub Agent for Dataverse
 
 This repository contains the buildable public source snapshot for version
-1.4.0-rc3 of the Reimaginate DataHub Dataverse agent packages:
+1.4.0-rc4 of the Reimaginate DataHub Dataverse agent packages:
 
 - `Reimaginate.DataHub.Agent.Dataverse`
 - `Reimaginate.DataHub.Agent.TestFramework.Dataverse`
@@ -53,4 +53,10 @@ See [SUPPORT.md](SUPPORT.md) for the support policy.
 
 ## License
 
-The source and packages are licensed under the [MIT License](LICENSE).
+The Agent source and official Agent packages are licensed under the
+[MIT License](LICENSE), including Agent copies of code that may also appear in
+DataHub. DataHub dependencies remain separately licensed under DataHub's
+Business Source License 1.1. Full DataHub hosting is confined to the optional
+integration-test support in the test-framework package. See
+[LICENSING.md](LICENSING.md) and
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

@@ -20,6 +20,12 @@
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)LICENSE')">
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="\" Link="LICENSE" />
   </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)LICENSING.md')">
+    <None Include="$(MSBuildThisFileDirectory)LICENSING.md" Pack="true" PackagePath="\" Link="LICENSING.md" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)THIRD-PARTY-NOTICES.md')">
+    <None Include="$(MSBuildThisFileDirectory)THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" Link="THIRD-PARTY-NOTICES.md" />
+  </ItemGroup>
   <PropertyGroup Condition="'$(GeneratePackageOnBuild)' == 'True'">
     <DebugType>portable</DebugType>
     <Deterministic>true</Deterministic>

@@ -25,7 +25,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Reimaginate.DataHub.Agent.Dataverse\Reimaginate.DataHub.Agent.Dataverse.csproj" />
-    <PackageReference Include="Reimaginate.DataHub.Agent.TestFramework" Version="1.4.0-rc3" />
+    <PackageReference Include="Reimaginate.DataHub.Agent.TestFramework" Version="1.4.0-rc4" />
     <ProjectReference Include="..\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>
