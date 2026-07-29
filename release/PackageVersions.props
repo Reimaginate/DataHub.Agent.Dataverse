@@ -1,21 +1,21 @@
 <Project>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Reimaginate.DataHub.Agent.Dataverse'">
-    <VersionPrefix>1.4.0-rc4</VersionPrefix>
+    <VersionPrefix>1.4.0</VersionPrefix>
   </PropertyGroup>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Reimaginate.DataHub.Agent.TestFramework.Dataverse'">
-    <VersionPrefix>1.4.0-rc4</VersionPrefix>
+    <VersionPrefix>1.4.0</VersionPrefix>
   </PropertyGroup>
   <ItemGroup>
     <DataHubAgentPublicPackage Include="Reimaginate.DataHub.Agent.Dataverse">
       <ProjectPath>src\Reimaginate.DataHub.Agent.Dataverse\Reimaginate.DataHub.Agent.Dataverse.csproj</ProjectPath>
-      <Version>1.4.0-rc4</Version>
+      <Version>1.4.0</Version>
       <Family>dataverse</Family>
       <ReleaseEnabled>true</ReleaseEnabled>
       <PublicRepository>https://github.com/Reimaginate/DataHub.Agent.Dataverse</PublicRepository>
     </DataHubAgentPublicPackage>
     <DataHubAgentPublicPackage Include="Reimaginate.DataHub.Agent.TestFramework.Dataverse">
       <ProjectPath>src\Reimaginate.DataHub.Agent.TestFramework.Dataverse\Reimaginate.DataHub.Agent.TestFramework.Dataverse.csproj</ProjectPath>
-      <Version>1.4.0-rc4</Version>
+      <Version>1.4.0</Version>
       <Family>dataverse</Family>
       <ReleaseEnabled>true</ReleaseEnabled>
       <PublicRepository>https://github.com/Reimaginate/DataHub.Agent.Dataverse</PublicRepository>
