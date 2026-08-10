@@ -43,11 +43,13 @@ public class MergeEntitiesRequestHandler<TDataverseEntity, TDataHubEntity>(IOpti
             var response = (await mediator.TrySend<GetSpecificDataverseEntitiesResponse<TDataverseEntity>>(new GetSpecificDataverseEntitiesRequest<TDataverseEntity>() { EntityIds = entityIds, ColumnSet = columnSet, ThrowOnNotFound = false }, cancellationToken)) switch { { Item2: { } exception } => throw exception, { Item1: var mediatorResultValue } => mediatorResultValue };
             if (response.NotFound?.Any() ?? false)
             {
-                mergeResults.AddRange(request.DataverseEntityIds.Select(s => new MergeEntityResult()
+                var sourceEntityType = typeof(TDataverseEntity).Name;
+                mergeResults.AddRange(response.NotFound.Select(id => new MergeEntityResult()
                 {
-                    SourceEntityType = typeof(TDataverseEntity).Name,
-                    SourceEntityId = s.ToString(),
-                    MergeOutcome = MergeOutcomes.SourceEntityNotFound
+                    SourceEntityType = sourceEntityType,
+                    SourceEntityId = id.ToString(),
+                    MergeOutcome = MergeOutcomes.SourceEntityNotFound,
+                    FailureReason = $"{sourceEntityType} '{id}' was not found in Dataverse."
                 }).ToList());
             }
             

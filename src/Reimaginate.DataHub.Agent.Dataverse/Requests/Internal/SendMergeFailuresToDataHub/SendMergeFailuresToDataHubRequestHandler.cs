@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Reimaginate.DataHub.Agent.Dataverse.Config;
 using Reimaginate.DataHub.Agent.Dataverse.Services.TimeService;
+using Reimaginate.DataHub.SharedModels.Constants;
 using Reimaginate.DataHub.SharedModels.Core;
 using Reimaginate.DataHub.SharedModels.Core.Models.Events;
 using Reimaginate.DataHub.SharedModels.Requests.Client;
@@ -21,16 +22,28 @@ public class SendMergeFailuresToDataHubRequestHandler(IDataHubClient dataHubClie
 
             await dataHubClient.PostRequestAsync<RegisterMergeFailuresRequest, NullResponse>(new RegisterMergeFailuresRequest()
             {
-                MergeFailures = batch.Select(s => new MergeFailure()
+                MergeFailures = batch.Select(s =>
                 {
-                    DataSource = dataverseAgentConfig.Value.DataSource,
-                    DataHubEntityType = s.DataHubEntityType,
-                    DataHubEntityId = s.DataHubEntityId,
-                    SourceEntityType = s.SourceEntityType,
-                    SourceEntityId = s.SourceEntityId,
-                    AgentId = dataverseAgentConfig.Value.AgentId,
-                    Description = s.FailureReason,
-                    Timestamp = timeService.Now()
+                    var failureType = string.IsNullOrWhiteSpace(s.MergeOutcome)
+                        ? MergeOutcomes.MergeFailed
+                        : s.MergeOutcome;
+                    var failureReason = string.IsNullOrWhiteSpace(s.FailureReason)
+                        ? "The merge operation did not provide a failure reason."
+                        : s.FailureReason;
+
+                    return new MergeFailure()
+                    {
+                        DataSource = dataverseAgentConfig.Value.DataSource,
+                        DataHubEntityType = s.DataHubEntityType,
+                        DataHubEntityId = s.DataHubEntityId,
+                        SourceEntityType = s.SourceEntityType,
+                        SourceEntityId = s.SourceEntityId,
+                        AgentId = dataverseAgentConfig.Value.AgentId,
+                        FailureType = failureType,
+                        FailureReason = failureReason,
+                        Description = failureReason,
+                        Timestamp = timeService.Now()
+                    };
                 }).ToList()
             }, cancellationToken);
 
