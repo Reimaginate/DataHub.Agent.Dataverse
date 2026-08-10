@@ -306,9 +306,26 @@ public class ProcessUpdatedEntitiesRequestHandler<TDataHubEntity, TDataverseEnti
                     {
                         var dataHubEntity = entitiesToUpdate.FirstOrDefault(f => f.alternateKeys.Any(ak => ak.Key == dataverseAltKey && ak.Value == mergeEntityResult.SourceEntityId));
 
-                        syncResults[dataHubEntity!.id].SyncOutcome = SyncOutcomes.SyncFailed;
-                        syncResults[dataHubEntity.id].FailureReason = $"{Constants.SyncFailureTypes.SourceEntityMergeFailed}: {mergeEntityResult.FailureReason}";
-                        entitiesToUpdate = entitiesToUpdate.Where(w => w.id != dataHubEntity.id).ToList();
+                        if (dataHubEntity?.id != null)
+                        {
+                            syncResults[dataHubEntity!.id].SyncOutcome = SyncOutcomes.SyncFailed;
+                            syncResults[dataHubEntity.id].FailureReason = $"{Constants.SyncFailureTypes.SourceEntityMergeFailed}: {mergeEntityResult.FailureReason}";
+                            entitiesToUpdate = entitiesToUpdate.Where(w => w.id != dataHubEntity.id).ToList();
+                        }
+                        else
+                        {
+                            var matchingSyncResults = syncResults.Where(w => w.Value.SourceEntityId == mergeEntityResult.SourceEntityId).ToList();
+                            foreach (var syncResult in matchingSyncResults)
+                            {
+                                syncResult.Value.SyncOutcome = SyncOutcomes.SyncFailed;
+                                syncResult.Value.FailureReason = $"{Constants.SyncFailureTypes.SourceEntityMergeFailed}: {mergeEntityResult.FailureReason}";
+                                var syncResultDataHubId = syncResult.Value.DataHubEntityId;
+                                if (syncResultDataHubId != null)
+                                {
+                                    entitiesToUpdate = entitiesToUpdate.Where(w => w.id != syncResultDataHubId).ToList();
+                                }
+                            }
+                        }
                     }
                 }
 

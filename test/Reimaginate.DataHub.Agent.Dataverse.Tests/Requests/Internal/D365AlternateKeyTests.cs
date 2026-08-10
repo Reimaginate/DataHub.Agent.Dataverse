@@ -10,6 +10,7 @@ using Reimaginate.DataHub.Agent.Dataverse.Models;
 using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.EnsureReferencedEntitiesAreSyncd;
 using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.ProcessDataverseDeletionEvents;
 using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.ProcessNewEntities;
+using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.ProcessMerge;
 using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.ProcessSync;
 using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.ProcessUntrackedEntities;
 using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.ProcessUpdatedEntities;
@@ -18,6 +19,7 @@ using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.SyncEntities;
 using Reimaginate.DataHub.Agent.Dataverse.Services.DataHubEntityCache;
 using Reimaginate.DataHub.Agent.Dataverse.Services.TimeService;
 using Reimaginate.DataHub.SharedModels.Attributes;
+using Reimaginate.DataHub.SharedModels.Constants;
 using Reimaginate.DataHub.SharedModels.Core;
 using Reimaginate.DataHub.SharedModels.Requests.Client;
 using Reimaginate.Mapper;
@@ -295,6 +297,83 @@ public sealed class D365AlternateKeyTests
         Assert.Equal(sourceId.ToString(), Assert.Single(trackedRequest.EntityIds));
         Assert.Equal(sourceId, Assert.Single(sourceRequest.EntityIds));
         Assert.Equal(sourceId.ToString(), Assert.Single(response.SyncResults).SourceEntityId);
+    }
+
+    [Fact(DisplayName = "Duplicate merge failures retain a failed sync result")]
+    [Trait("Category", "Unit")]
+    public async Task ProcessUpdatedEntitiesHandlesDuplicateMergeFailures()
+    {
+        var sourceId = Guid.NewGuid();
+        var entity = TrackedEntityWithD365Key(sourceId);
+        var dataHubClient = Substitute.For<IDataHubClient>();
+        var mediator = Substitute.For<IMediator>();
+
+        dataHubClient.PostRequestAsync<GetTrackedEntitiesRequest, GetTrackedEntitiesResponse>(
+                Arg.Any<GetTrackedEntitiesRequest>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new GetTrackedEntitiesResponse
+            {
+                Results =
+                [
+                    new()
+                    {
+                        Success = true,
+                        EntityId = sourceId.ToString(),
+                        Data = null
+                    }
+                ]
+            });
+        mediator.TrySend<GetSpecificDataverseEntitiesResponse<DataverseAccount>>(
+                Arg.Any<IRequest<GetSpecificDataverseEntitiesResponse<DataverseAccount>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<Action<Exception>>())
+            .Returns(TrySuccess(new GetSpecificDataverseEntitiesResponse<DataverseAccount>
+            {
+                Success = true,
+                Results = [new DataverseAccount { Id = sourceId }]
+            }));
+        mediator.TrySend<EnsureReferencedEntitiesAreSyncdResponse<D365TrackedAccount, DataverseAccount>>(
+                Arg.Any<IRequest<EnsureReferencedEntitiesAreSyncdResponse<D365TrackedAccount, DataverseAccount>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<Action<Exception>>())
+            .Returns(TrySuccess(EmptyReferenceResponse<D365TrackedAccount>()));
+        mediator.TrySend<ProcessMergeResponse>(
+                Arg.Any<IRequest<ProcessMergeResponse>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<Action<Exception>>())
+            .Returns(TrySuccess(new ProcessMergeResponse
+            {
+                Results =
+                [
+                    new MergeEntityResult
+                    {
+                        SourceEntityId = sourceId.ToString(),
+                        MergeOutcome = MergeOutcomes.MergeFailed,
+                        FailureReason = "first merge failure"
+                    },
+                    new MergeEntityResult
+                    {
+                        SourceEntityId = sourceId.ToString(),
+                        MergeOutcome = MergeOutcomes.MergeFailed,
+                        FailureReason = "second merge failure"
+                    }
+                ]
+            }));
+        var handler = new ProcessUpdatedEntitiesRequestHandler<D365TrackedAccount, DataverseAccount>(
+            D365Options(),
+            dataHubClient,
+            Substitute.For<IMapper>(),
+            mediator,
+            Substitute.For<ITimeService>());
+
+        var response = await handler.HandleAsync(new ProcessUpdatedEntitiesRequest<D365TrackedAccount, DataverseAccount>
+        {
+            EntitiesToUpdate = [entity]
+        }, CancellationToken.None);
+
+        var syncResult = Assert.Single(response.SyncResults);
+        Assert.Equal(SyncOutcomes.SyncFailed, syncResult.SyncOutcome);
+        Assert.EndsWith("second merge failure", syncResult.FailureReason);
     }
 
     [Fact(DisplayName = "Untracked update and optimistic tracking use the D365 alternate key source")]
