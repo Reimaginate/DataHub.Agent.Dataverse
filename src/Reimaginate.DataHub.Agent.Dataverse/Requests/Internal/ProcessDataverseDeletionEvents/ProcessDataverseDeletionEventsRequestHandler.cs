@@ -16,6 +16,8 @@ public class ProcessDataverseDeletionEventsRequestHandler(IDataHubClient dataHub
 {
     public async Task<ProcessDataverseDeletionEventsResponse> HandleAsync(ProcessDataverseDeletionEventsRequest request, CancellationToken cancellationToken)
     {
+        var sourceSystemPrefix = dataverseAgentOptions.Value.DataSource.Trim().ToLowerInvariant();
+
         var resolveDataHubEntitiesReq = new ResolveEntityReferencesRequest()
         {
             EntityReferences = request.Events.Select(deletion =>
@@ -84,7 +86,7 @@ public class ProcessDataverseDeletionEventsRequestHandler(IDataHubClient dataHub
                 var patchRequests = dataHubEntities.Select((entity, i) =>
                 {
                     var alternateKeys = entity.Value<JArray>(nameof(DataHubEntity.alternateKeys));
-                    var altKey = $"dataverse.{entityTypeGroup.Key.SourceEntityType.ToLower()}";
+                    var altKey = $"{sourceSystemPrefix}.{entityTypeGroup.Key.SourceEntityType.ToLowerInvariant()}";
                     var dataverseAltKey = alternateKeys.FirstOrDefault(f => f.Value<string>(nameof(AlternateKey.Key)) == altKey);
                     if (dataverseAltKey != null)
                     {
@@ -93,9 +95,9 @@ public class ProcessDataverseDeletionEventsRequestHandler(IDataHubClient dataHub
 
                     var syncBlacklist = entity.Value<JArray>(nameof(DataHubEntity.syncBlacklist));
                     syncBlacklist ??= [];
-                    if (!syncBlacklist.Contains(new JValue("dataverse")))
+                    if (!syncBlacklist.Contains(new JValue(sourceSystemPrefix)))
                     {
-                        syncBlacklist.Add("dataverse");
+                        syncBlacklist.Add(sourceSystemPrefix);
                     }
 
                     var ret = new PatchEntityRequest()

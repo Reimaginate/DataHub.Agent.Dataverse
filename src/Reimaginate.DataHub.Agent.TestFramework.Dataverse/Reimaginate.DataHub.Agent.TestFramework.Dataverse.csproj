@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeDataverseSharedTestSupportBuildOutput</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificDebugSymbolsInPackage>$(TargetsForTfmSpecificDebugSymbolsInPackage);IncludeDataverseSharedTestSupportDebugSymbols</TargetsForTfmSpecificDebugSymbolsInPackage>
     <Description>Dataverse-specific test framework helpers for exercising Reimaginate DataHub agent integrations.</Description>
     <PackageTags>datahub;dataverse;testing;test-framework</PackageTags>
     <UserSecretsId>bc5d96aa-0911-4a49-b258-d5e30ffe5fc5</UserSecretsId>
@@ -31,6 +33,32 @@
   <ItemGroup>
     <ProjectReference Include="..\Reimaginate.DataHub.Agent.Dataverse\Reimaginate.DataHub.Agent.Dataverse.csproj" />
     <PackageReference Include="Reimaginate.DataHub.Agent.TestFramework" Version="1.4.0" />
-    <ProjectReference Include="..\..\test\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared.csproj" />
+    <ProjectReference Include="..\..\test\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared.csproj" PrivateAssets="all" />
   </ItemGroup>
+  <Target Name="IncludeDataverseSharedTestSupportBuildOutput">
+    <PropertyGroup>
+      <_DataverseSharedTestSupportPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\test\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared\bin\$(Configuration)\$(TargetFramework)\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared.dll'))</_DataverseSharedTestSupportPath>
+    </PropertyGroup>
+    <ItemGroup>
+      <_DataverseSharedTestSupport Include="$(_DataverseSharedTestSupportPath)" Condition="Exists('$(_DataverseSharedTestSupportPath)')" />
+      <BuildOutputInPackage Include="@(_DataverseSharedTestSupport)">
+        <FinalOutputPath>%(_DataverseSharedTestSupport.FullPath)</FinalOutputPath>
+        <TargetPath>%(_DataverseSharedTestSupport.Filename)%(_DataverseSharedTestSupport.Extension)</TargetPath>
+      </BuildOutputInPackage>
+    </ItemGroup>
+    <Error Condition="'@(_DataverseSharedTestSupport)' == ''" Text="The Dataverse shared test-support assembly was not built before packaging." />
+  </Target>
+  <Target Name="IncludeDataverseSharedTestSupportDebugSymbols">
+    <PropertyGroup>
+      <_DataverseSharedTestSupportSymbolsPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\test\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared\bin\$(Configuration)\$(TargetFramework)\Reimaginate.DataHub.Agent.Dataverse.Tests.Shared.pdb'))</_DataverseSharedTestSupportSymbolsPath>
+    </PropertyGroup>
+    <ItemGroup>
+      <_DataverseSharedTestSupportSymbols Include="$(_DataverseSharedTestSupportSymbolsPath)" Condition="Exists('$(_DataverseSharedTestSupportSymbolsPath)')" />
+      <TfmSpecificDebugSymbolsFile Include="@(_DataverseSharedTestSupportSymbols)">
+        <TargetFramework>$(TargetFramework)</TargetFramework>
+        <TargetPath>%(_DataverseSharedTestSupportSymbols.Filename)%(_DataverseSharedTestSupportSymbols.Extension)</TargetPath>
+      </TfmSpecificDebugSymbolsFile>
+    </ItemGroup>
+    <Error Condition="'@(_DataverseSharedTestSupportSymbols)' == ''" Text="The Dataverse shared test-support symbols were not built before packaging." />
+  </Target>
 </Project>

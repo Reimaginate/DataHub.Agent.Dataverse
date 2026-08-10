@@ -48,13 +48,14 @@ public class SyncEntitiesRequestHandler<TDataHubEntity, TDataverseEntity>(IOptio
             if (syncRequest == null)
             {
                 //Prefilter the entities to sync to exclude nosync. If there is a custom processor, let the custom processor handle them.
+                var sourceSystemPrefix = dataverseAgentConfig.Value.DataSource.Trim().ToLowerInvariant();
                 entitiesToSync = entitiesToSync.Where(w =>
                 {
                     var noSync = w.Value<bool>(nameof(DataHubEntity.noSync));
                     var whiteList = w.Value<JArray>(nameof(DataHubEntity.syncWhitelist)) ?? [];
                     var blackList = w.Value<JArray>(nameof(DataHubEntity.syncBlacklist)) ?? [];
 
-                    var doNotSync = (noSync && whiteList.All(a => a.Value<string>() != "dataverse")) || blackList.Any(a => a.Value<string>() == "dataverse");
+                    var doNotSync = (noSync && whiteList.All(a => a.Value<string>() != sourceSystemPrefix)) || blackList.Any(a => a.Value<string>() == sourceSystemPrefix);
                     return !doNotSync;
                 }).ToList();
 

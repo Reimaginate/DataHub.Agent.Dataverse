@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Options;
 using Microsoft.Xrm.Sdk;
 using Newtonsoft.Json.Linq;
+using Reimaginate.DataHub.Agent.Dataverse.Config;
 using Reimaginate.DataHub.Agent.Dataverse.DataAccess.Commands.UpdateDataverseRecords;
 using Reimaginate.DataHub.Agent.Dataverse.Services.DataHubEntityCache;
 using Reimaginate.DataHub.SharedModels.Core;
@@ -9,13 +11,14 @@ using EntityReference = Reimaginate.DataHub.SharedModels.Core.EntityReference;
 
 namespace Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.ResolveResolutionPromises;
 
-public class ResolveResolutionPromisesRequestHandler<TDataHubEntity, TDataverseSibling>(IDataHubEntityCache dataHubEntityCache, IMapper mapper, IMediator mediator)
+public class ResolveResolutionPromisesRequestHandler<TDataHubEntity, TDataverseSibling>(IDataHubEntityCache dataHubEntityCache, IMapper mapper, IMediator mediator, IOptions<DataverseAgentOptions> dataverseAgentConfig)
     : IHandler<ResolveResolutionPromisesRequest<TDataHubEntity, TDataverseSibling>, ResolveResolutionPromisesResponse<TDataHubEntity, TDataverseSibling>>
     where TDataHubEntity : DataHubEntity
     where TDataverseSibling : Microsoft.Xrm.Sdk.Entity
 {
     public async Task<ResolveResolutionPromisesResponse<TDataHubEntity, TDataverseSibling>> HandleAsync(ResolveResolutionPromisesRequest<TDataHubEntity, TDataverseSibling> request, CancellationToken cancellationToken)
     {
+        var sourceSystemPrefix = $"{dataverseAgentConfig.Value.DataSource.Trim().ToLowerInvariant()}.";
         var resolvedPromises = new List<ResolutionPromise>();
         List<ResolvedResolutionPromise> updatedEntities = null;
 
@@ -36,10 +39,10 @@ public class ResolveResolutionPromisesRequestHandler<TDataHubEntity, TDataverseS
                 foreach (var referringEntity in referringEntities)
                 {
                     var referringEntityAltKeys = referringEntity.Value<JArray>(nameof(DataHubEntity.alternateKeys))?.ToObject<List<AlternateKey>>();
-                    var referringEntityDataverseAltKey = referringEntityAltKeys?.FirstOrDefault(f => f.Key.StartsWith("dataverse."));
+                    var referringEntityDataverseAltKey = referringEntityAltKeys?.FirstOrDefault(f => f.Key.StartsWith(sourceSystemPrefix, StringComparison.Ordinal));
                     if (referringEntityDataverseAltKey != null)
                     {
-                        var referringEntityDataverseTypeName = referringEntityDataverseAltKey.Key.Split(".")[1];
+                        var referringEntityDataverseTypeName = referringEntityDataverseAltKey.Key[sourceSystemPrefix.Length..];
                         var referringEntityDataHubTypeName = referringEntity.Value<string>(nameof(DataHubEntity.entityType));
 
                         var referringEntityDataverseType = typeof(TDataverseSibling).Assembly.GetType($"{typeof(TDataverseSibling).Namespace}.{referringEntityDataverseTypeName}", true, true);

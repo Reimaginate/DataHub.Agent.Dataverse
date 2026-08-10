@@ -213,7 +213,7 @@ public class ProcessUntrackedEntitiesRequestHandler<TDataHubEntity, TDataverseEn
                 CorrelationId = request.CorrelationId,
                 Requests = updatedTDataverseEntities.Select(s => new UpdateEntityRequest()
                 {
-                    DataSource = "Dataverse",
+                    DataSource = dataverseAgentConfig.Value.DataSource,
                     EntityType = s.Item1.LogicalName,
                     EntityId = s.Item1.Id.ToString(),
                     Timestamp = s.Item3,

@@ -55,8 +55,10 @@ public class EnsureReferencedEntitiesAreSyncdRequestHandler<TDataHubEntity, TDat
 
         #region Find referenced entities that do not yet exist in Dataverse
 
+        var sourceSystemPrefix = dataverseAgentConfig.Value.DataSource.Trim().ToLowerInvariant();
+
         var unsyncedReferencedEntities = resolvedEntityReferences
-            .Where(w => !w.Value.TryGetSourceSystemAlternateKeys("dataverse").Any())
+            .Where(entity => !entity.Value.TryGetSourceSystemAlternateKeys(sourceSystemPrefix).Any())
             .Distinct()
             .ToList();
 

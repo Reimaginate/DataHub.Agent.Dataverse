@@ -207,7 +207,7 @@ public class ProcessNewEntitiesRequestHandler<TDataHubEntity, TDataverseEntity>(
 
                         return new UpdateEntityRequest()
                         {
-                            DataSource = "Dataverse",
+                            DataSource = dataverseAgentConfig.Value.DataSource,
                             EntityType = entityLogicalName,
                             EntityId = createResult.Value.EntityId.ToString(),
                             Timestamp = entity.lastUpdated,
