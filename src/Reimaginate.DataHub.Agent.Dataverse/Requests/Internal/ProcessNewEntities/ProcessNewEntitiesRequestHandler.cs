@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
+using Polly;
+using Polly.Retry;
 using Reimaginate.DataHub.Agent.Dataverse.Config;
 using Reimaginate.DataHub.Agent.Dataverse.DataAccess.Commands.CreateDataverseRecords;
 using Reimaginate.DataHub.Agent.Dataverse.Helpers;
@@ -145,38 +147,19 @@ public class ProcessNewEntitiesRequestHandler<TDataHubEntity, TDataverseEntity>(
 
         #region Register alternate keys with the Data Hub
 
-        if (successfullyCreatedEntities.Any())
-        {
-            var registrationRequests = successfullyCreatedEntities.Select((dataHubEntity, i) => new RegisterAlternateKeyRequest()
-            {
-                EntityType = typeof(TDataHubEntity).Name,
-                Untracked = isUntrackedEntity,
-                DataHubEntityId = dataHubEntity.id,
-                SourceEntityId = syncResults[dataHubEntity.id].SourceEntityId,
-                Key = $"{dataverseAgentConfig.Value.DataSource}.{entityLogicalName}".ToLower()
-            }).ToList();
-
-            var registerAlternateKeysResponse = await dataHubClient.PostRequestAsync<RegisterAlternateKeysRequest, RegisterAlternateKeysResponse>(new RegisterAlternateKeysRequest()
-            {
-                CorrelationId = request.CorrelationId,
-                Requests = registrationRequests
-            }, cancellationToken);
-
-            var alternateKeyRegistrationFailures = registerAlternateKeysResponse.Responses.Where(w => !w.Success).ToList();
-            alternateKeyRegistrationFailures.ForEach(failure =>
-            {
-                var entity = successfullyCreatedEntities[alternateKeyRegistrationFailures.IndexOf(failure)];
-                var syncResult = syncResults[entity.id];
-                syncResult.SyncOutcome = SyncOutcomes.SyncFailed;
-                syncResult.FailureReason = $"Failed to register alternate key: {failure.FailureReason}";
-            });
-        }
+        var successfullyRegisteredEntities = await RegisterAlternateKeys(
+            successfullyCreatedEntities,
+            syncResults,
+            entityLogicalName,
+            isUntrackedEntity,
+            request.CorrelationId,
+            cancellationToken);
 
         #endregion
 
         #region Refresh the entity cache 
 
-        var successfulEntityTypes = successfullyCreatedEntities.GroupBy(g => g.entityType);
+        var successfulEntityTypes = successfullyRegisteredEntities.GroupBy(g => g.entityType);
         foreach (var entityTypeGroup in successfulEntityTypes)
         {
             dataHubEntityCache.InvalidateCacheEntries<TDataHubEntity>(entityTypeGroup.Select(s => s.id).ToList());
@@ -186,15 +169,18 @@ public class ProcessNewEntitiesRequestHandler<TDataHubEntity, TDataverseEntity>(
 
         #region Optimistically update source entity tracking in DataHub
 
-        var successfulCreateResponses = bulkCreateResponse.Results.Where(w => w.Value.Success).ToDictionary(k => k.Key, v => v.Value);
-        if (successfulCreateResponses.Any())
+        var successfullyRegisteredEntityIds = successfullyRegisteredEntities.Select(entity => entity.id).ToHashSet();
+        var successfullyRegisteredCreateResponses = bulkCreateResponse.Results
+            .Where(result => result.Value.Success && successfullyRegisteredEntityIds.Contains(result.Key))
+            .ToDictionary(key => key.Key, value => value.Value);
+        if (successfullyRegisteredCreateResponses.Any())
         {
             if (!isUntrackedEntity)
             {
                 var optimisticUpdateRequest = new UpdateEntitiesRequest()
                 {
                     CorrelationId = request.CorrelationId,
-                    Requests = successfulCreateResponses.Select(createResult =>
+                    Requests = successfullyRegisteredCreateResponses.Select(createResult =>
                     {
                         var entity = dataverseToDHIdMap[createResult.Value.EntityId!.Value];
 
@@ -225,11 +211,11 @@ public class ProcessNewEntitiesRequestHandler<TDataHubEntity, TDataverseEntity>(
 
         #region Process Resolution Promises
 
-        if (resolutionPromises.Any() && successfullyCreatedEntities.Any())
+        if (resolutionPromises.Any() && successfullyRegisteredEntities.Any())
         {
             var resolutionResponse = (await mediator.TrySend<ResolveResolutionPromisesResponse<TDataHubEntity, TDataverseEntity>>(new ResolveResolutionPromisesRequest<TDataHubEntity, TDataverseEntity>()
             {
-                EntitiesToResolve = successfullyCreatedEntities,
+                EntitiesToResolve = successfullyRegisteredEntities,
                 ResolutionPromises = resolutionPromises
             }, cancellationToken)) switch { { Item2: { } exception } => throw exception, { Item1: var mediatorResultValue } => mediatorResultValue };
 
@@ -255,5 +241,100 @@ public class ProcessNewEntitiesRequestHandler<TDataHubEntity, TDataverseEntity>(
             SyncResults = syncResults.Values.ToList(),
             ResolutionPromises = resolutionPromises
         };
+    }
+
+    private async Task<List<TDataHubEntity>> RegisterAlternateKeys(
+        IReadOnlyList<TDataHubEntity> entities,
+        IReadOnlyDictionary<string, SyncEntityResult> syncResults,
+        string entityLogicalName,
+        bool isUntrackedEntity,
+        string correlationId,
+        CancellationToken cancellationToken)
+    {
+        if (entities.Count == 0)
+        {
+            return [];
+        }
+
+        var pendingRegistrations = entities.Select(entity => (
+            Entity: entity,
+            Request: new RegisterAlternateKeyRequest
+            {
+                EntityType = typeof(TDataHubEntity).Name,
+                Untracked = isUntrackedEntity,
+                DataHubEntityId = entity.id,
+                SourceEntityId = syncResults[entity.id].SourceEntityId,
+                Key = $"{dataverseAgentConfig.Value.DataSource}.{entityLogicalName}".ToLower()
+            })).ToList();
+        var successfulEntityIds = new HashSet<string>();
+        var failureReasons = new Dictionary<string, string>();
+        var maxAttempts = Math.Max(1, dataverseAgentConfig.Value.AlternateKeyRegistrationMaxAttempts);
+        var configuredDelay = dataverseAgentConfig.Value.AlternateKeyRegistrationRetryDelay;
+        var retryPipeline = new ResiliencePipelineBuilder<bool>()
+            .AddRetry(new RetryStrategyOptions<bool>
+            {
+                MaxRetryAttempts = maxAttempts - 1,
+                Delay = configuredDelay > TimeSpan.Zero ? configuredDelay : TimeSpan.Zero,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = new PredicateBuilder<bool>().HandleResult(success => !success)
+            })
+            .Build();
+
+        await retryPipeline.ExecuteAsync(async retryCancellationToken =>
+        {
+            try
+            {
+                var response = await dataHubClient.PostRequestAsync<RegisterAlternateKeysRequest, RegisterAlternateKeysResponse>(
+                    new RegisterAlternateKeysRequest
+                    {
+                        CorrelationId = correlationId,
+                        Requests = pendingRegistrations.Select(registration => registration.Request).ToList()
+                    },
+                    retryCancellationToken);
+                var responses = response.Responses ?? [];
+                var failedRegistrations = new List<(TDataHubEntity Entity, RegisterAlternateKeyRequest Request)>();
+
+                for (var index = 0; index < pendingRegistrations.Count; index++)
+                {
+                    var registration = pendingRegistrations[index];
+                    var registrationResponse = responses.ElementAtOrDefault(index);
+                    if (registrationResponse?.Success == true)
+                    {
+                        successfulEntityIds.Add(registration.Entity.id);
+                        failureReasons.Remove(registration.Entity.id);
+                        continue;
+                    }
+
+                    failureReasons[registration.Entity.id] = registrationResponse?.FailureReason
+                        ?? "Data Hub returned no result.";
+                    failedRegistrations.Add(registration);
+                }
+
+                pendingRegistrations = failedRegistrations;
+            }
+            catch (OperationCanceledException) when (retryCancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                foreach (var registration in pendingRegistrations)
+                {
+                    failureReasons[registration.Entity.id] = exception.Message;
+                }
+            }
+
+            return pendingRegistrations.Count == 0;
+        }, cancellationToken);
+
+        foreach (var failedRegistration in pendingRegistrations)
+        {
+            var syncResult = syncResults[failedRegistration.Entity.id];
+            syncResult.SyncOutcome = SyncOutcomes.SyncFailed;
+            syncResult.FailureReason = $"Failed to register alternate key after {maxAttempts} attempt(s): {failureReasons[failedRegistration.Entity.id]}";
+        }
+
+        return entities.Where(entity => successfulEntityIds.Contains(entity.id)).ToList();
     }
 }

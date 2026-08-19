@@ -2,6 +2,7 @@
 
 Release notes for published versions, newest first.
 
+- [v1.4.4](v1.4.4.md)
 - [v1.4.3](v1.4.3.md)
 - [v1.4.2](v1.4.2.md)
 - [v1.4.1](v1.4.1.md)

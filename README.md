@@ -1,7 +1,7 @@
 # DataHub Agent for Dataverse
 
 This repository contains the buildable public source snapshot for version
-1.4.3 of the Reimaginate DataHub Dataverse agent packages:
+1.4.4 of the Reimaginate DataHub Dataverse agent packages:
 
 - `Reimaginate.DataHub.Agent.Dataverse`
 - `Reimaginate.DataHub.Agent.TestFramework.Dataverse`

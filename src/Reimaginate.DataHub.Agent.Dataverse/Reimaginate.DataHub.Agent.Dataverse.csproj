@@ -23,6 +23,7 @@
 		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.26" />
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client.Dynamics" Version="1.2.26" />
+		<PackageReference Include="Polly" Version="8.7.0" />
 		<PackageReference Include="Reimaginate.DataHub.Client" Version="1.4.0" />
 		<PackageReference Include="Reimaginate.DataServices" Version="1.3.0" />
 		<PackageReference Include="Reimaginate.Mediator.Abstractions" Version="1.3.0" />

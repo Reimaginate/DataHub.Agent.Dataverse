@@ -5,7 +5,6 @@
     <AssemblyName>Reimaginate.DataHub.Agent.Dataverse.Tests.Unit</AssemblyName>
     <RootNamespace>Reimaginate.DataHub.Agent.Dataverse.Tests.Unit</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>a08143ef-73f9-4681-b364-7ad52310e0c8</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Bogus" Version="35.6.5" />

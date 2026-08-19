@@ -181,7 +181,10 @@ public sealed class D365AlternateKeyTests
         dataHubClient.PostRequestAsync<RegisterAlternateKeysRequest, RegisterAlternateKeysResponse>(
                 Arg.Do<RegisterAlternateKeysRequest>(request => registrationRequest = request),
                 Arg.Any<CancellationToken>())
-            .Returns(new RegisterAlternateKeysResponse { Responses = [] });
+            .Returns(new RegisterAlternateKeysResponse
+            {
+                Responses = [new RegisterAlternateKeyResponse { Success = true }]
+            });
         dataHubClient.PostRequestAsync<UpdateEntitiesRequest, UpdateEntitiesResponse>(
                 Arg.Do<UpdateEntitiesRequest>(request => trackingUpdateRequest = request),
                 Arg.Any<CancellationToken>())
