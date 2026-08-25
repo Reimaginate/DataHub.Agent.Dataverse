@@ -15,6 +15,7 @@ using Reimaginate.DataHub.Agent.Dataverse.DataAccess.Queries.GetAllDataverseEnti
 using Reimaginate.DataHub.Agent.Dataverse.DataAccess.Queries.GetSpecificDataverseEntities;
 using Reimaginate.DataHub.Agent.Dataverse.Requests.External.MergeSpecificDataverseEntities;
 using Reimaginate.DataHub.Agent.Dataverse.Requests.External.SyncSpecificDataHubEntities;
+using Reimaginate.DataHub.Agent.Dataverse.Requests.Internal.ProcessSync;
 using Reimaginate.DataHub.Agent.Dataverse.Services.Dataverse;
 using Reimaginate.DataHub.SharedModels.Constants;
 using Reimaginate.DataHub.SharedModels.Core;
@@ -885,6 +886,60 @@ public class DataverseAgent : TestAgentBase<DataverseAgent>
 
             var resultingRecord = await syncRecord<TDataHub, TDataverse>(currentObject, stash, (_, _) => stash[fromStash].ToObject<TDataHub>()!.id, stashTo);
             return new ScenarioActionResult() { CurrentObject = resultingRecord, Outputs = stash };
+        }
+        ScenarioBuilder.Enqueue(f);
+        return this;
+    }
+
+    private async Task syncRecordExpectingNoResult<TDataHub, TDataverse>(object currentObject, Dictionary<string, object?> stash, Func<object, Dictionary<string, object?>, string> entityIdFunc) where TDataverse : Entity where TDataHub : DataHubEntity
+    {
+        var entityId = entityIdFunc(currentObject, stash);
+        var syncResponse = await SendUsingMediator(new SyncSpecificDataHubEntitiesRequest<TDataHub, TDataverse>()
+        {
+            EntityIds = [entityId]
+        });
+
+        EnsureNoSyncResult(syncResponse, entityId);
+    }
+
+    internal static void EnsureNoSyncResult(ProcessSyncResponse syncResponse, string entityId)
+    {
+        if (syncResponse.Results.Count == 0) return;
+
+        var failures = syncResponse.Results
+            .Where(result => SyncOutcomes.IsFailure(result.SyncOutcome))
+            .ToList();
+        if (failures.Count != 0)
+        {
+            throw new InvalidOperationException(string.Join(
+                Environment.NewLine,
+                failures.Select(result => result.FailureReason ?? "Dataverse sync failed.")));
+        }
+
+        throw new InvalidOperationException(
+            $"Expected Dataverse sync for DataHub entity '{entityId}' to return no result, but received {syncResponse.Results.Count}.");
+    }
+
+    public DataverseAgent SyncRecordExpectingNoResult<TDataHub, TDataverse>(TDataHub record) where TDataverse : Entity where TDataHub : DataHubEntity
+    {
+        async Task<ScenarioActionResult> f(object currentObject, Dictionary<string, object?> stash)
+        {
+            await syncRecordExpectingNoResult<TDataHub, TDataverse>(currentObject, stash, (_, _) => record.id);
+            return new ScenarioActionResult() { CurrentObject = currentObject, Outputs = stash };
+        }
+        ScenarioBuilder.Enqueue(f);
+        return this;
+    }
+
+    public DataverseAgent SyncRecordExpectingNoResult<TDataHub, TDataverse>(string fromStash) where TDataverse : Entity where TDataHub : DataHubEntity
+    {
+        async Task<ScenarioActionResult> f(object currentObject, Dictionary<string, object?> stash)
+        {
+            if (!stash.TryGetValue(fromStash, out var value)) throw new Exception($"SyncRecordExpectingNoResult: key {fromStash} not found in stash");
+            if (value == null) throw new Exception($"SyncRecordExpectingNoResult: {fromStash} value is null");
+
+            await syncRecordExpectingNoResult<TDataHub, TDataverse>(currentObject, stash, (_, _) => stash[fromStash].ToObject<TDataHub>()!.id);
+            return new ScenarioActionResult() { CurrentObject = currentObject, Outputs = stash };
         }
         ScenarioBuilder.Enqueue(f);
         return this;
