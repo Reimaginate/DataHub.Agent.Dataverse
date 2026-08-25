@@ -1,8 +1,10 @@
 using Azure.Core;
 using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
+using Reimaginate.DataHub.Agent.Dataverse.Config;
 using Reimaginate.DataHub.Agent.Dataverse.DataAccess.Commands.AddMembersToMarketingList;
 using Reimaginate.DataHub.Agent.Dataverse.DataAccess.Commands.CreateDataverseRecord;
 using Reimaginate.DataHub.Agent.Dataverse.DataAccess.Commands.CreateDataverseRecords;
@@ -912,7 +914,9 @@ public class DataverseAgent : TestAgentBase<DataverseAgent>
 
         var resultingDataHubEntities = getDataHubEntityResponse.Results.Select(s => s.ToObject<TDataHub>()).ToList();
 
-        var dataverseKeys = resultingDataHubEntities!.Select(GetDataverseAlternateKey<TDataverse>).ToList();
+        var dataverseKeys = resultingDataHubEntities!
+            .Select(entity => GetDataverseAlternateKey<TDataverse>(entity!))
+            .ToList();
 
         var getResponse = await SendUsingMediator(new GetSpecificDataverseEntitiesRequest<TDataverse>()
         {
@@ -940,23 +944,38 @@ public class DataverseAgent : TestAgentBase<DataverseAgent>
         return this;
     }
 
-    private static string GetDataverseAlternateKey<TDataverse>(DataHubEntity dataHubEntity)
+    internal string GetDataverseAlternateKey<TDataverse>(DataHubEntity dataHubEntity)
         where TDataverse : Entity
     {
+        var configuredDataSource = AgentServices
+            .GetRequiredService<IOptions<DataverseAgentOptions>>()
+            .Value
+            .DataSource
+            .Trim();
         var logicalName = typeof(TDataverse).GetField("EntityLogicalName")?.GetValue(null)?.ToString();
-        var alternateKeyNames = new[]
-            {
-                $"dataverse.{logicalName}",
-                $"dataverse.{typeof(TDataverse).Name}"
-            }
-            .Where(key => !string.IsNullOrWhiteSpace(key))
-            .Select(key => key.ToLowerInvariant())
-            .ToHashSet();
+        var entityTypeNames = new[] { logicalName, typeof(TDataverse).Name }
+            .Where(typeName => !string.IsNullOrWhiteSpace(typeName))
+            .Select(typeName => typeName!)
+            .ToList();
 
-        var alternateKey = dataHubEntity.alternateKeys.FirstOrDefault(key => alternateKeyNames.Contains(key.Key.ToLowerInvariant()));
+        AlternateKey? FindAlternateKey(string dataSource)
+        {
+            var alternateKeyNames = entityTypeNames
+                .Select(typeName => $"{dataSource}.{typeName}")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            return dataHubEntity.alternateKeys.FirstOrDefault(key => alternateKeyNames.Contains(key.Key));
+        }
+
+        var alternateKey = FindAlternateKey(configuredDataSource);
+        if (alternateKey is null && !configuredDataSource.Equals("d365", StringComparison.OrdinalIgnoreCase))
+        {
+            alternateKey = FindAlternateKey("d365");
+        }
+
         if (alternateKey is null)
         {
-            throw new InvalidOperationException($"DataHub entity '{dataHubEntity.entityType}/{dataHubEntity.id}' does not contain a Dataverse alternate key for '{typeof(TDataverse).Name}'.");
+            throw new InvalidOperationException($"DataHub entity '{dataHubEntity.entityType}/{dataHubEntity.id}' does not contain a Dataverse alternate key for configured data source '{configuredDataSource}' and entity type '{typeof(TDataverse).Name}'.");
         }
 
         return alternateKey.Value;
