@@ -507,32 +507,33 @@ public class ProcessUpdatedEntitiesRequestHandler<TDataHubEntity, TDataverseEnti
         };
     }
 
-    private async Task<(bool, List<Tuple<string, object, object>>)> AreDataverseEntitiesEqual(TDataverseEntity dataverseEntity1, TDataverseEntity dataverseEntity2, List<string> propertiesToConsider, List<string> ignoreProps, CancellationToken cancellationToken)
+    private Task<(bool, List<Tuple<string, object, object>>)> AreDataverseEntitiesEqual(TDataverseEntity dataverseEntity1, TDataverseEntity dataverseEntity2, List<string> propertiesToConsider, List<string> ignoreProps, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var diffs = new List<Tuple<string, object, object>>();
 
         var dataverseEntity1Keys = dataverseEntity1.Attributes.Where(w => w.Value != null).Select(s => s.Key).ToList();
         var dataverseEntity2Keys = dataverseEntity2.Attributes.Where(w => w.Value != null).Select(s => s.Key).ToList();
 
         var sharedAttributes = dataverseEntity1Keys.Intersect(dataverseEntity2Keys).ToList();
-        var propResults = new ConcurrentBag<bool>();
+        var areEqual = true;
 
-        await Parallel.ForEachAsync(sharedAttributes, cancellationToken, (attKey, _) =>
+        // These are synchronous in-memory comparisons. Parallel appends to the shared
+        // difference list lost fields, allowing partial updates to report success.
+        foreach (var attKey in sharedAttributes)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var dataverseEntity1Val = dataverseEntity1.Attributes[attKey];
             var dataverseEntity2Val = dataverseEntity2.Attributes[attKey];
             var propEqual = dataverseEntity1Val == null && dataverseEntity2Val == null || dataverseEntity1Val != null && dataverseEntity1Val.Equals(dataverseEntity2Val) || dataverseEntity2Val != null && dataverseEntity2Val.Equals(dataverseEntity1Val);
-            propResults.Add(propEqual);
+            areEqual &= propEqual;
 
             if (!propEqual)
             {
                 diffs.Add(new(attKey, dataverseEntity1Val, dataverseEntity2Val));
             }
 
-            return ValueTask.CompletedTask;
-        });
-
-        var areEqual = propResults.All(r => r);
+        }
 
         var uniqueToDataverseEntity1 = dataverseEntity1Keys.Except(dataverseEntity2Keys).ToList();
         var uniqueToDataverseEntity2 = dataverseEntity2Keys.Except(dataverseEntity1Keys).ToList();
@@ -543,10 +544,11 @@ public class ProcessUpdatedEntitiesRequestHandler<TDataHubEntity, TDataverseEnti
             areEqual = false;
             foreach (var key in mutuallyExclusiveKeys)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 diffs.Add(new(key, dataverseEntity1.Attributes.ContainsKey(key) ? dataverseEntity1.Attributes[key] : null, dataverseEntity2.Attributes.ContainsKey(key) ? dataverseEntity2.Attributes[key] : null));
             }
         }
 
-        return (areEqual, diffs);
+        return Task.FromResult((areEqual, diffs));
     }
 }
