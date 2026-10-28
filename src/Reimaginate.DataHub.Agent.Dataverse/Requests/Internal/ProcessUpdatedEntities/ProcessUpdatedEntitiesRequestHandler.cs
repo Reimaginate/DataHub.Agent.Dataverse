@@ -352,6 +352,39 @@ public class ProcessUpdatedEntitiesRequestHandler<TDataHubEntity, TDataverseEnti
                             result.ResultingDataHubEntity = JObject.FromObject(e);
                         }
                     });
+
+                    if (updatedDataHubEntities.Any())
+                    {
+                        // Reconciliation can introduce or replace references. Resolve the whole
+                        // remaining batch before mapping, including entities that were not reloaded.
+                        var refreshedReferences = (await mediator.TrySend<EnsureReferencedEntitiesAreSyncdResponse<TDataHubEntity, TDataverseEntity>>(new EnsureReferencedEntitiesAreSyncdRequest<TDataHubEntity, TDataverseEntity>()
+                        {
+                            Entities = entitiesToUpdate.ToList(),
+                            DependencyTree = request.DependencyTree,
+                            ResolutionPromises = request.ResolutionPromises,
+                            ContinueOnFailure = true
+                        }, cancellationToken)) switch { { Item2: { } exception } => throw exception, { Item1: var mediatorResultValue } => mediatorResultValue };
+
+                        request.ResolutionPromises.AddRange(refreshedReferences.ResolutionPromises.Except(request.ResolutionPromises));
+                        foreach (var failure in refreshedReferences.Failures)
+                        {
+                            syncResults[failure.Entity.id].SyncOutcome = SyncOutcomes.SyncFailed;
+                            syncResults[failure.Entity.id].FailureReason = failure.Exception.Message;
+                            // Reloaded entities are new instances; remove failures by identity.
+                            entitiesToUpdate.RemoveAll(e => e.id == failure.Entity.id);
+                        }
+
+                        // Dictionary.Merge replaces entire type lists. Preserve other cached
+                        // entities/lookups, but prefer refreshed details for each entity identity.
+                        foreach (var group in refreshedReferences.CachedEntities.GroupBy(e => e.Value<string>(nameof(DataHubEntity.entityType))))
+                        {
+                            var previousEntities = entityCache.TryGetValue(group.Key, out var cached)
+                                && cached is IEnumerable<JObject> previous ? previous : Enumerable.Empty<JObject>();
+                            entityCache[group.Key] = group.Concat(previousEntities)
+                                .DistinctBy(e => e.Value<string>(nameof(DataHubEntity.id)))
+                                .ToList();
+                        }
+                    }
                 }
 
                 #endregion

@@ -78,7 +78,8 @@ public class MergeEntitiesRequestHandler<TDataverseEntity, TDataHubEntity>(IOpti
         {
             if (dataverseEntityLocks != null && dataverseEntityLocks.Any())
             {
-                await processingLockService.ReleaseLocksAsync(dataverseEntityLocks, cancellationToken);
+                // Cleanup must still release owned locks after request cancellation.
+                await processingLockService.ReleaseLocksAsync(dataverseEntityLocks, CancellationToken.None);
             }
         }
     }

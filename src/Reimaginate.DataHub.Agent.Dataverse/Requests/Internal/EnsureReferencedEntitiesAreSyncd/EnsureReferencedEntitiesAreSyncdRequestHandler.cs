@@ -19,6 +19,42 @@ public class EnsureReferencedEntitiesAreSyncdRequestHandler<TDataHubEntity, TDat
 {
     public async Task<EnsureReferencedEntitiesAreSyncdResponse<TDataHubEntity, TDataverseEntity>> HandleAsync(EnsureReferencedEntitiesAreSyncdRequest<TDataHubEntity, TDataverseEntity> request, CancellationToken cancellationToken)
     {
+        if (!request.ContinueOnFailure)
+            return await EnsureReferencesAsync(request, cancellationToken);
+
+        var response = new EnsureReferencedEntitiesAreSyncdResponse<TDataHubEntity, TDataverseEntity>();
+        var cachedEntities = new Dictionary<(string Type, string Id), JObject>();
+        // Resolve each record once, sharing this handler's cache. A failed reference
+        // must not block unrelated outbound updates.
+        foreach (var entity in request.Entities)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var result = await EnsureReferencesAsync(new EnsureReferencedEntitiesAreSyncdRequest<TDataHubEntity, TDataverseEntity>
+                {
+                    Entities = [entity],
+                    DependencyTree = request.DependencyTree,
+                    ResolutionPromises = request.ResolutionPromises
+                }, cancellationToken);
+                foreach (var cached in result.CachedEntities)
+                    cachedEntities[(cached.Value<string>(nameof(DataHubEntity.entityType)), cached.Value<string>(nameof(DataHubEntity.id)))] = cached;
+                response.ResolutionPromises.AddRange(result.ResolutionPromises.Except(response.ResolutionPromises));
+                response.Failures.AddRange(result.Failures);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                response.Failures.Add(new ReferenceEntitySyncFailure { Entity = entity, Exception = exception });
+            }
+        }
+
+        response.CachedEntities = cachedEntities.Values.ToList();
+        return response;
+    }
+
+    private async Task<EnsureReferencedEntitiesAreSyncdResponse<TDataHubEntity, TDataverseEntity>> EnsureReferencesAsync(EnsureReferencedEntitiesAreSyncdRequest<TDataHubEntity, TDataverseEntity> request, CancellationToken cancellationToken)
+    {
         var resolvedEntityReferences = new Dictionary<string, JObject>();
         var resolutionPromises = new List<ResolutionPromise>();
         var failures = new List<ReferenceEntitySyncFailure>();

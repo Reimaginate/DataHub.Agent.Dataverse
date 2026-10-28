@@ -162,7 +162,8 @@ public class SyncUpdatedDataHubEntitiesRequestHandler<TDataHubEntity, TDataverse
         {
             if (syncLock != null)
             {
-                await processingLockService.ReleaseLockAsync(syncLock, cancellationToken);
+                // Cleanup must still release owned locks after request cancellation.
+                await processingLockService.ReleaseLockAsync(syncLock, CancellationToken.None);
             }
         }
     }

@@ -162,7 +162,8 @@ public class MergeUpdatedDataverseEntitiesRequestHandler<TDataverseEntity, TData
         {
             if (syncLock != null)
             {
-                await processingLockService.ReleaseLockAsync(syncLock, cancellationToken);
+                // Cleanup must still release owned locks after request cancellation.
+                await processingLockService.ReleaseLockAsync(syncLock, CancellationToken.None);
             }
         }
     }

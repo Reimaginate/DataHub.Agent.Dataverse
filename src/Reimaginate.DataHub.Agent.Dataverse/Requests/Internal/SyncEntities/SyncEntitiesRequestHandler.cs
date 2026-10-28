@@ -84,7 +84,8 @@ public class SyncEntitiesRequestHandler<TDataHubEntity, TDataverseEntity>(IOptio
         {
             if (dataHubEntityLocks != null && dataHubEntityLocks.Any())
             {
-                await processingLockService.ReleaseLocksAsync(dataHubEntityLocks, cancellationToken);
+                // Cleanup must still release owned locks after request cancellation.
+                await processingLockService.ReleaseLocksAsync(dataHubEntityLocks, CancellationToken.None);
             }
         }
     }

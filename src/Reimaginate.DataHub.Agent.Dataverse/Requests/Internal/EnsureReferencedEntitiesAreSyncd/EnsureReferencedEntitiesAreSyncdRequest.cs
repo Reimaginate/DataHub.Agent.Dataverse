@@ -9,4 +9,6 @@ public class EnsureReferencedEntitiesAreSyncdRequest<TDataHubEntity, TDataverseE
     public List<TDataHubEntity> Entities { get; set; }
     public List<EntityReference> DependencyTree { get; set; }
     public List<ResolutionPromise> ResolutionPromises { get; set; }
+    // Isolate dependency errors when refreshing entities that already passed the initial sync checks.
+    public bool ContinueOnFailure { get; set; }
 }

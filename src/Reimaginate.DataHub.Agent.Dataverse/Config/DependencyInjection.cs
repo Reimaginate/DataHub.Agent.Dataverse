@@ -4,6 +4,7 @@ using Microsoft.PowerPlatform.Dataverse.Client;
 using Reimaginate.DataHub.Agent.Dataverse.Services.Dataverse;
 using Reimaginate.DataHub.Agent.Dataverse.Services.DataHubEntityCache;
 using Reimaginate.ProcessingLockService;
+using Reimaginate.ProcessingLockService.Redis;
 using Reimaginate.DataHub.Client.Config;
 using Microsoft.Extensions.Options;
 using Reimaginate.DataHub.Agent.Dataverse.Services.TimeService;
